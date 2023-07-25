@@ -1,0 +1,330 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Three.js Box with Shadows</title>
+  <style>
+    body { margin: 0px; }
+  </style>
+</head>
+<body>
+
+  <a href="/untd_threed">
+    <div style="z-index: 1000; position: absolute; top: 15px; left: 15px; background-color: #ffffff; width: 25px; height: 25px; border-radius: 50px;" class="backbutton">	
+      <svg
+        xmlns="http://www.w3.org/2000/svg"
+        width="24" height="24"
+        viewBox="0 0 24 24"
+        fill="none"
+        stroke="#bbb"
+        stroke-width="2"
+        stroke-linecap="round"
+        stroke-linejoin="round"
+        onclick="goBack()"
+        style="cursor: pointer;">
+        <polyline points="15 18 9 12 15 6"></polyline>
+      </svg>
+    </div>
+  </a>
+
+  <script async src="https://unpkg.com/es-module-shims@1.6.3/dist/es-module-shims.js"></script>
+
+  <div id="canvas" style="width: 50px; position: absolute"></div>
+
+  <div id="what" style="z-index: -10; height: 100%; width: 100%; position: absolute; background-color: #bbb; left: 50%; transform: translate(-50%, -50%); top: 50%"></div>
+
+  <script type="importmap">
+    {
+      "imports": {
+        "three": "../build/three.module.js",
+        "three/addons/": "./jsm/"
+      }
+    }
+  </script>  
+
+  <script type="module">
+
+    let grid = new THREE.Object3D();
+
+    let cubes = [];
+
+    let mv = 0.05;
+
+    // Constants
+    const gridSize = 3; // Adjust the grid size as desired
+    const cubeCount = 27;
+    const cubeSize = 5;
+    const gridGap = 7.5;
+
+    import * as THREE from 'three';
+    import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
+    import { GLTFLoader } from "./jsm/loaders/GLTFLoader.js";
+
+    let controls, renderer, scene, camera, icosahedronGeometry, icosahedronMesh, plight;
+
+    let time = 0;
+
+    const raycaster = new THREE.Raycaster();
+    const mouse = new THREE.Vector2();
+
+    init();
+
+    function init(){
+      scene = new THREE.Scene();
+      scene.fog = new THREE.Fog( 0xbbbbbb, 22.5, 32.5 );
+      camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 10000);
+      camera.position.set(0,0,30);
+      renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
+      renderer.setPixelRatio(window.devicePixelRatio);
+      renderer.setSize(window.innerWidth, window.innerHeight);
+      renderer.toneMapping = THREE.ACESFilmicToneMapping;
+      renderer.shadowMap.enabled = true;
+      renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+      renderer.shadowMap.needsUpdate = true;
+      renderer.shadowMap.debug = true;
+      canvas.appendChild(renderer.domElement);
+
+      controls = new OrbitControls(camera, renderer.domElement);
+      controls.enableDamping = true;
+      controls.minDistance = 4;
+      // controls.maxDistance = 4;
+	    // controls.enableRotate = false;
+	    // controls.enablePan = false;
+      // controls.maxPolarAngle = Math.PI / 2;
+
+      const light = new THREE.AmbientLight( 0xbbbbbb ); // soft white light
+      scene.add( light );
+
+      plight = new THREE.PointLight( 0xbbbbbb, 3, 100 );
+      plight.position.set( 0, 3.75, 5 );
+      scene.add( plight );
+
+      addcubes();      
+      
+      window.addEventListener('resize', onWindowResize);
+      window.addEventListener('mousemove', onMouseMove);
+
+      // Start the animation loop
+      render();
+    }
+    
+    function addcubes(){
+      
+      let cubematerial = new THREE.MeshLambertMaterial({ color: 0xbbbbbb });
+      // Create cubes and arrange them in a grid
+      for (let i = 0; i < cubeCount; i++) {
+        if (i !== Math.floor(cubeCount / 2)) { // Skip the center cube
+          const cube = new THREE.Mesh(new THREE.BoxGeometry(cubeSize, cubeSize, cubeSize), cubematerial);
+          const row = Math.floor(i / (gridSize * gridSize));
+          const col = Math.floor((i % (gridSize * gridSize)) / gridSize);
+          const layer = i % gridSize;
+          const xPos = (col - (gridSize / 2)) * gridGap;
+          const yPos = (layer - (gridSize / 2)) * gridGap;
+          const zPos = (row - (gridSize / 2)) * gridGap;
+          cube.position.set(xPos, yPos, zPos);
+          cube.name = "cube"+i;
+          grid.add(cube);
+          cubes.push({ mesh: cube, position: new THREE.Vector3(xPos, yPos, zPos) });
+        }
+      }
+      
+      grid.position.set(3.75,3.75,5);
+      scene.add(grid);
+
+    }
+
+    function onMouseMove(event) {
+    }
+
+    function onWindowResize() {
+      camera.aspect = window.innerWidth / window.innerHeight;
+      camera.updateProjectionMatrix();
+      renderer.setSize(window.innerWidth, window.innerHeight);
+    }
+
+    // Add an animation loop
+    function render() {
+      requestAnimationFrame(render);
+
+      // Update the morphed geometry
+      time += 0.005;
+
+      controls.update();
+
+      renderer.render(scene, camera);
+    }
+
+    function gotoone(){
+      scene.traverse(function(child){
+        if(child.name=="cube22"){
+          child.position.z -= mv;
+          if(child.position.z <= -3.75){
+            child.position.z = -3.75;
+            gototwo();
+          }
+        }
+      })
+      requestAnimationFrame(gotoone);
+    }
+
+    function gototwo(){
+      scene.traverse(function(child){
+        if(child.name=="cube25"){
+          child.position.x -= mv;
+          if(child.position.x <= -3.75){
+            child.position.x = -3.75;
+            gotothree();
+          }
+        }
+      })
+    }
+
+    function gotothree(){
+      scene.traverse(function(child){
+        if(child.name=="cube16"){
+          child.position.z += mv;
+          if(child.position.z >= 3.75){
+            child.position.z = 3.75;
+            gotofour();
+          }
+        }
+      })
+    }
+
+    function gotofour(){
+      scene.traverse(function(child){
+        if(child.name=="cube17"){
+          child.position.y -= mv;
+          if(child.position.y <= -3.75){
+            child.position.y = -3.75;
+            gotofive();
+          }
+        }
+      })
+    }
+
+    function gotofive(){
+      scene.traverse(function(child){
+        if(child.name=="cube14"){
+          child.position.x += mv;
+          if(child.position.x >= 3.75){
+            child.position.x = 3.75;
+            gotosix();
+          }
+        }
+      })
+    }
+
+    function gotosix(){
+      scene.traverse(function(child){
+        if(child.name=="cube5"){
+          child.position.z += mv;
+          if(child.position.z >= -3.75){
+            child.position.z = -3.75;
+            gotoseven();
+          }
+        }
+      })
+    }
+
+    function gotoseven(){
+      scene.traverse(function(child){
+        if(child.name=="cube2"){
+          child.position.x += mv;
+          if(child.position.x >= -3.75){
+            child.position.x = -3.75;
+            gotoeight();
+          }
+        }
+      })
+    }
+
+    function gotoeight(){
+      scene.traverse(function(child){
+        if(child.name=="cube2"){
+          child.position.x += mv;
+          if(child.position.x >= -3.75){
+            child.position.x = -3.75;
+            gotonine();
+          }
+        }
+      })
+    }
+
+    function gotonine(){
+      scene.traverse(function(child){
+        if(child.name=="cube1"){
+          child.position.y += mv;
+          if(child.position.y >= 3.75){
+            child.position.y = 3.75;
+            gototen();
+          }
+        }
+      })
+    }
+
+    function gototen(){
+      scene.traverse(function(child){
+        if(child.name=="cube0"){
+          child.position.y += mv;
+          if(child.position.y >= -3.75){
+            child.position.y = -3.75;
+            gototeleven();
+          }
+        }
+      })
+    }
+
+    function gototeleven(){
+      scene.traverse(function(child){
+        if(child.name=="cube9"){
+          child.position.z -= mv;
+          if(child.position.z <= -11.25){
+            child.position.z = -11.25;
+            gototwelve();
+          }
+        }
+      })
+    }
+
+    function gototwelve(){
+      scene.traverse(function(child){
+        if(child.name=="cube10"){
+          child.position.y -= mv;
+          if(child.position.y <= -11.25){
+            child.position.y = -11.25;
+            gotothirteen();
+          }
+        }
+      })
+    }
+
+    function gotothirteen(){
+      scene.traverse(function(child){
+        if(child.name=="cube22"){
+          child.position.x -= mv;
+          if(child.position.x <= -11.25){
+            child.position.x = -11.25;
+            emptyGrid();
+            addcubes();
+            return;
+          }
+        }
+      })
+    }
+
+    function emptyGrid() {
+      while (grid.children.length > 0) {
+        const child = grid.children[0];
+        grid.remove(child);
+      }
+    }
+
+    gotoone();
+
+    render();
+
+  </script>
+</body>
+</html>

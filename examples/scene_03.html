@@ -1,0 +1,203 @@
+<!DOCTYPE html>
+<html lang="en">
+	<head>
+		<title>three.js webgl - orbit controls</title>
+		<meta charset="utf-8">
+		<meta name="viewport" content="width=device-width, user-scalable=no, minimum-scale=1.0, maximum-scale=1.0">
+		<style>
+			body {
+				margin: 0px;
+				overflow: hidden;
+			}
+			
+		</style>
+	</head>
+
+	<body>
+
+		<a href="/untd_threed">
+			<div style="z-index: 1000; position: absolute; top: 15px; left: 15px; background-color: #ffffff; width: 25px; height: 25px; border-radius: 50px;" class="backbutton">	
+				<svg
+					xmlns="http://www.w3.org/2000/svg"
+					width="24" height="24"
+					viewBox="0 0 24 24"
+					fill="none"
+					stroke="#bbb"
+					stroke-width="2"
+					stroke-linecap="round"
+					stroke-linejoin="round"
+					onclick="goBack()"
+					style="cursor: pointer;">
+					<polyline points="15 18 9 12 15 6"></polyline>
+				</svg>
+			</div>
+		</a>
+
+		<!-- <div id="info">
+			<p href="https://threejs.org" target="_blank" rel="noopener"></p>
+		</div> -->
+
+		<!-- Import maps polyfill -->
+		<!-- Remove this when import maps will be widely supported -->
+		<script async src="https://unpkg.com/es-module-shims@1.6.3/dist/es-module-shims.js"></script>
+
+		<script type="importmap">
+			{
+				"imports": {
+					"three": "../build/three.module.js",
+					"three/addons/": "./jsm/"
+				}
+			}
+		</script>
+
+		<div id="canvas" style="width: 50px; position: absolute"></div>
+
+		<div id="what" style="z-index: -10; height: 100%; width: 100%; position: absolute; background-color: #bbb; left: 50%; transform: translate(-50%, -50%); top: 50%"></div>
+
+		<script type="module">
+
+			import * as THREE from 'three';
+
+			import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
+			import { FontLoader } from 'three/addons/loaders/FontLoader.js';
+			import { TextGeometry } from "./jsm/geometries/TextGeometry.js";
+			import { GLTFLoader } from "./jsm/loaders/GLTFLoader.js";
+			import { Reflector } from 'three/addons/objects/Reflector.js';
+            import { Lensflare, LensflareElement } from 'three/addons/objects/Lensflare.js';
+
+			let camera, controls, scene, renderer, mixer, sphere, spheretwo, spherethree, geometry, raycaster, pointer, groundMirror;
+
+			let t = 0;
+
+			let theproject = new THREE.Object3D();
+
+            let ring = new THREE.Group();
+
+            let dirLight2, dirLight1;
+
+			init();
+			//render(); // remove when using next line for animation loop (requestAnimationFrame)
+			
+            drawSphere();
+
+            animate();
+
+			function init() {
+
+				scene = new THREE.Scene();
+				// scene.fog = new THREE.FogExp2(0xcccccc, 0.002);
+
+				renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
+				renderer.setPixelRatio(window.devicePixelRatio);
+				renderer.setSize(window.innerWidth, window.innerHeight);
+
+				// scene.background = new THREE.Color(0xffffff, .5);
+
+				canvas.appendChild(renderer.domElement);
+
+				camera = new THREE.PerspectiveCamera(60, window.innerWidth / window.innerHeight, 1, 100000);
+				camera.position.set(0, 200, 1200);
+
+				// controls
+
+				controls = new OrbitControls(camera, renderer.domElement);
+				controls.listenToKeyEvents(window); // optional
+
+				//controls.addEventListener( 'change', render ); // call this only in static scenes (i.e., if there is no animation loop)
+
+				controls.enableDamping = true; // an animation loop is required when either damping or auto-rotation are enabled
+				controls.dampingFactor = 0.05;
+
+				controls.screenSpacePanning = false;
+				controls.enableRotate = false;
+
+				controls.minDistance = 750;
+				controls.maxDistance = 1400;
+
+				controls.maxPolarAngle = Math.PI / 2;
+
+				// lights
+
+				dirLight1 = new THREE.DirectionalLight(0xaaaaaa);
+				dirLight1.position.set(1, 1, -1);
+				ring.add(dirLight1);
+
+				dirLight2 = new THREE.PointLight(0xaaaaaa);
+				dirLight2.position.set(-1, -1, -1);
+				ring.add(dirLight2);
+
+				const ambientLight = new THREE.AmbientLight(0xffffff);
+				scene.add(ambientLight);
+
+				window.addEventListener('resize', onWindowResize);
+
+                scene.add(ring);
+
+                let sg = new THREE.SphereGeometry(300,1000,100);
+                let sm = new THREE.MeshPhongMaterial({ color: 0xbbbbbb });
+                let smm = new THREE.Mesh( sg, sm );
+                ring.add(smm);
+
+                ring.rotation.x = Math.PI/.4;
+                ring.rotation.y = Math.PI*.1;
+
+			}
+
+			function onWindowResize() {
+
+				camera.aspect = window.innerWidth / window.innerHeight;
+				camera.updateProjectionMatrix();
+
+				renderer.setSize(window.innerWidth, window.innerHeight);
+
+			}
+
+			function animate() {
+
+				requestAnimationFrame(animate);
+
+				controls.update(); // only required if controls.enableDamping = true, or if controls.autoRotate = true
+
+				render();
+
+			}
+
+            function drawSphere() {
+                const spherethreeRadius = 15;
+                const spherethreeSegments = 120;
+                const spherethreeRings = 32;
+                const spherethreeMaterial = new THREE.MeshBasicMaterial({ color: 0xffffff });
+                spherethree = new THREE.Mesh(new THREE.SphereGeometry(spherethreeRadius, spherethreeSegments, spherethreeRings), spherethreeMaterial);
+                ring.add(spherethree);
+            }
+
+			function render() {
+				if (mixer) {
+					mixer.update(0.01);
+				}
+				renderer.render(scene, camera);
+
+                t += 0.01;
+                const radius = 400;
+                const tubeRadius = 0.2;
+                const x = radius * Math.cos(t);
+                const y = radius * Math.sin(t);
+                const z = tubeRadius * Math.sin(t);
+
+                spherethree.position.set(x,y,z);
+
+                dirLight2.position.set(x,y,z);
+
+                dirLight1.position.set(x,y,z);
+
+				// Update the time value
+				// time += 0.01;
+
+				// Animate the distortion
+
+			}
+
+		</script>
+
+	</body>
+</html>

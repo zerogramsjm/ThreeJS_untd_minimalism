@@ -1,0 +1,181 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Three.js Box with Shadows</title>
+  <style>
+    body { margin: 0px; cursor: none; }
+    #circle {
+      width: 10px;
+      height: 10px;
+      border-radius: 50%;
+      background-color: white;
+      position: absolute;
+    }
+  </style>
+</head>
+<body>
+
+  <a href="/untd_threed">
+    <div style="z-index: 1000; position: absolute; top: 15px; left: 15px; background-color: #ffffff; width: 25px; height: 25px; border-radius: 50px;" class="backbutton">	
+      <svg
+        xmlns="http://www.w3.org/2000/svg"
+        width="24" height="24"
+        viewBox="0 0 24 24"
+        fill="none"
+        stroke="#bbb"
+        stroke-width="2"
+        stroke-linecap="round"
+        stroke-linejoin="round"
+        onclick="goBack()"
+        style="cursor: pointer;">
+        <polyline points="15 18 9 12 15 6"></polyline>
+      </svg>
+    </div>
+  </a>
+  
+  <script async src="https://unpkg.com/es-module-shims@1.6.3/dist/es-module-shims.js"></script>
+
+  <div id="canvas" style="width: 50px; position: absolute"></div>
+
+  <div id="what" style="z-index: -10; height: 100%; width: 100%; position: absolute; background-color: #bbb; left: 50%; transform: translate(-50%, -50%); top: 50%"></div>
+
+  <!-- Add a new div for the circle -->
+  <div id="circle"></div>
+
+  <script type="importmap">
+    {
+      "imports": {
+        "three": "../build/three.module.js",
+        "three/addons/": "./jsm/"
+      }
+    }
+  </script>  
+
+  <script type="module">
+
+    import * as THREE from 'three';
+    import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
+    import { GLTFLoader } from "./jsm/loaders/GLTFLoader.js";
+    import { SimplexNoise } from 'three/addons/math/SimplexNoise.js'; // Import the SimplexNoise class
+    import { Reflector } from 'three/addons/objects/Reflector.js';
+
+    let controls, renderer, scene, camera, icosahedronGeometry, icosahedronMesh, plight;
+    let time = 0;
+    let noise = new SimplexNoise();
+
+    init();
+
+    function init(){
+      scene = new THREE.Scene();
+      camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 10000);
+      camera.position.set(0,0,4);
+      renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
+      renderer.setPixelRatio(window.devicePixelRatio);
+      renderer.setSize(window.innerWidth, window.innerHeight);
+      renderer.toneMapping = THREE.ACESFilmicToneMapping;
+      renderer.shadowMap.enabled = true;
+      renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+      renderer.shadowMap.needsUpdate = true;
+      renderer.shadowMap.debug = true;
+      canvas.appendChild(renderer.domElement);
+
+      controls = new OrbitControls(camera, renderer.domElement);
+      controls.enableDamping = true; // an animation loop is required when either damping or auto-rotation are enabled
+      controls.minDistance = 4;
+      controls.maxDistance = 4;
+	    controls.enableRotate = false;
+	    controls.enablePan = false;
+      controls.maxPolarAngle = Math.PI / 2;
+
+      camera.lookAt(scene);
+
+      window.addEventListener('resize', onWindowResize);
+      window.addEventListener('mousemove', onMouseMove);
+
+      // Create the IcosahedronGeometry
+      icosahedronGeometry = new THREE.IcosahedronGeometry(1, 25);
+
+      const light = new THREE.AmbientLight( 0xbbbbbb ); // soft white light
+      scene.add( light );
+
+      plight = new THREE.PointLight( 0xbbbbbb, 3, 100 );
+      plight.position.set( 2, 2, 2 );
+      scene.add( plight );
+
+      // Create the IcosahedronMesh
+      const icosahedronMaterial = new THREE.MeshPhongMaterial({ 
+        color: 0xeeeeee,
+        side: THREE.DoubleSide,
+        wireframe: false,
+        shininess: 50, // Lower shininess for a rougher look
+        specular: 0x555555, // Increase the intensity of the specular highlight
+      });
+      icosahedronMesh = new THREE.Mesh(icosahedronGeometry, icosahedronMaterial);
+      icosahedronMesh.receiveShadow = true;
+      icosahedronMesh.castShadow = true;
+      icosahedronMesh.position.set(0,0,0);
+
+      scene.add(icosahedronMesh);
+
+      // Start the animation loop
+      render();
+    }
+
+    function onWindowResize() {
+      camera.aspect = window.innerWidth / window.innerHeight;
+      camera.updateProjectionMatrix();
+      renderer.setSize(window.innerWidth, window.innerHeight);
+    }
+
+    function onMouseMove(event) {
+      const mouseX = (event.clientX / window.innerWidth) * 2 - 1;
+      const mouseY = -(event.clientY / window.innerHeight) * 2 + 1;
+
+      const vector = new THREE.Vector3(mouseX, mouseY, 1);
+      vector.unproject(camera);
+
+      const dir = vector.sub(camera.position).normalize();
+      const distance = (2.5 - camera.position.z) / dir.z; // Set the z position to 2
+      const pos = camera.position.clone().add(dir.multiplyScalar(distance));
+
+      plight.position.copy(pos);
+
+      // Update the position of the circle div
+      const circle = document.getElementById('circle');
+      circle.style.left = `${event.clientX}px`;
+      circle.style.top = `${event.clientY}px`;
+    }
+
+    // Add an animation loop
+    function render() {
+      requestAnimationFrame(render);
+
+      // Update the morphed geometry
+      time += 0.005;
+
+      controls.update();
+
+      icosahedronMesh.rotation.x += 0.01;
+	    icosahedronMesh.rotation.y += 0.005;
+	    icosahedronMesh.rotation.z += 0.0025;
+
+      const positionAttribute = icosahedronGeometry.attributes.position;
+      for (let i = 0; i < positionAttribute.count; i++) {
+        const vertex = new THREE.Vector3();
+        vertex.fromBufferAttribute(positionAttribute, i);
+        const simplex = noise.noise3d(vertex.x + time, vertex.y + time, vertex.z + time);
+        vertex.normalize().multiplyScalar(1.1 + simplex * 0.2);
+        positionAttribute.setXYZ(i, vertex.x, vertex.y, vertex.z);
+      }
+      positionAttribute.needsUpdate = true;
+
+      renderer.render(scene, camera);
+    }
+
+    render();
+
+  </script>
+</body>
+</html>
